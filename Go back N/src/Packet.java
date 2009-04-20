@@ -8,7 +8,7 @@ public final class Packet {
 	private final int length;
 	private final byte[] content;
 	
-	Packet(final int seqNum, final int length, final byte[] content){
+	Packet(final int seqNum, final int length, final byte[] content) {
 		this.seqNum = seqNum;
 		this.length = length;
 		this.content = content;

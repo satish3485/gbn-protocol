@@ -32,13 +32,19 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 	}
 	
 	public final void timeoutExpired() {
+		
 		System.out.println("Receiver timeout! Disconnection...");
 		Network.cancelTimeout(this);
+		
 		try {
+		
 			Network.disconnect();
+		
 		} catch (InterruptedException e) {
+		
 			Network.setTimeout(RECEIVER_TIMEOUT, this);
 			e.printStackTrace();
+		
 		}
 
 	}	

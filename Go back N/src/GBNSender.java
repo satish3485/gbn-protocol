@@ -62,7 +62,7 @@ public class GBNSender implements Sender, TimeoutAction {
 		
 		for (int i = 0; i < pending.size(); i++) {
 		
-			if(pending.get(i).getSeqNum() <= seqNum){
+			if(pending.get(i).getSeqNum() <= seqNum) {
 				pending.remove(i);
 			}
 			
