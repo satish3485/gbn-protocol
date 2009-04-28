@@ -12,53 +12,51 @@ public class GBNSender implements Sender, TimeoutAction {
 	private int seqNum;
 	private int seqNumLength;
 
-	private int base;
-	private byte[] data_pkt;
-	private int data_pkt_len;
+	private byte[] data;
+	private int packetLength;
 
 	public GBNSender() {
 		
 		seqNumLength = SeqNum.toByte(seqNum).length;
 		pending = new ArrayList<Packet>();
-		data_pkt = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];
-		data_pkt_len = 0;
-		setBase(0);
+		data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];
+		packetLength = 0;
 		
 	}
 
 	private final void make_packet(final int seq, final byte[] buffer, int offset, final int length) {
 
 		if (length + seqNumLength + 1 > Network.MAX_PACKET_SIZE) {
-			data_pkt_len = Network.MAX_PACKET_SIZE;
+			packetLength = Network.MAX_PACKET_SIZE;
 		} else {
-			data_pkt_len = length + seqNumLength + 1;
+			packetLength = length + seqNumLength + 1;
 		}
 		
 		/** size of the sequence number */
-		data_pkt[0] = (byte) seqNumLength;
+		data[0] = (byte) seqNumLength;
 
 		/**  transform sequence number into byte[] */
 		byte[] seqNum = SeqNum.toByte(this.seqNum); 
 
 		/** push the sequence number into the byte array */
 		for (int i = 0; i < seqNumLength; i++) {
-			data_pkt[i + 1] = seqNum[i];
+			data[i + 1] = seqNum[i];
 		}
 
 		/** push the content into the byte array */	
-		for (int i = seqNumLength + 1; i < data_pkt_len; i++) {
-			data_pkt[i] = buffer[offset++];
+		for (int i = seqNumLength + 1; i < packetLength; i++) {
+			data[i] = buffer[offset++];
 		}
 		
 		/** Put it in pending packets */
-		pending.add(new Packet(this.seqNum, data_pkt_len, data_pkt));
+		pending.add(new Packet(this.seqNum, packetLength, data));
 		
 		this.seqNum++;
 
 	}
 
-	/** Slides the window based on cumulative ACKs */
-	private final void slideWindow(final int seqNum) {
+	/** Sends all pending packets based on cumulative ACKs */
+	private final void sendAll(final int seqNum) {
 		
 		for (int i = 0; i < pending.size(); i++) {
 		
@@ -67,7 +65,6 @@ public class GBNSender implements Sender, TimeoutAction {
 			}
 			
 		}
-		setBase(seqNum);
 	}
 
 	public final void unreliableReceive(byte[] buffer, int offset, int length) {
@@ -77,7 +74,7 @@ public class GBNSender implements Sender, TimeoutAction {
 		if (length > 0 && receivedSeqNum >= seqNum && pending.size() <= WINDOW_SIZE) {
 
 			System.out.println("Received ACK n. " + receivedSeqNum);
-			slideWindow(receivedSeqNum);
+			sendAll(receivedSeqNum);
 			Network.cancelTimeout(this);
 			Network.allowClose();
 			Network.resumeSender();
@@ -108,23 +105,10 @@ public class GBNSender implements Sender, TimeoutAction {
 		Network.disallowClose();
 		make_packet(seqNum, buffer, offset, length);
 		Network.setTimeout(SENDER_TIMEOUT_MS, this);
-		Network.unreliableSend(data_pkt, 0, data_pkt_len);
+		Network.unreliableSend(data, 0, packetLength);
 		
-		return data_pkt_len - (seqNumLength + 1);
+		return packetLength - (seqNumLength + 1);
 
 	}
 
-	/**
-	 * @param base the base to set
-	 */
-	public final void setBase(int base) {
-		this.base = base;
-	}
-
-	/**
-	 * @return the base
-	 */
-	public final int getBase() {
-		return base;
-	}
 }
