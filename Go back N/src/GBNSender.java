@@ -79,9 +79,11 @@ public class GBNSender implements Sender, TimeoutAction {
 		
 		if (length > 0 && receivedACK >= seqNum && pending.size() <= WINDOW_SIZE) {
 
-			Network.cancelTimeout(this);
 			slideWindow(receivedACK);
-			Network.setTimeout(SENDER_TIMEOUT_MS, this);
+	        Network.cancelTimeout(this);
+            Network.allowClose();
+            Network.resumeSender();
+
 			
 		} else if(receivedACK < seqNum) {
 			System.out.println("Received wrong ACK n: " + receivedACK );
@@ -93,13 +95,13 @@ public class GBNSender implements Sender, TimeoutAction {
 	public final void timeoutExpired() {
 
 		Network.cancelTimeout(this);
-		Network.setTimeout(SENDER_TIMEOUT_MS, this);
 		System.out.println("Sender timeout");
 		
 		for (int i = 0; i < pending.size(); i++) {
 			Network.unreliableSend(pending.get(i).getContent(), 0, pending.get(i).getLength());
 			System.out.println("Re-sending packet: " + pending.get(i).getSeqNum());
 		}
+		Network.setTimeout(SENDER_TIMEOUT_MS, this);
 	}
 
 	public final int reliableSend(final byte[] buffer, final int offset, final int length) {
