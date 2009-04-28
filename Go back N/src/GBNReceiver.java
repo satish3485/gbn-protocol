@@ -9,7 +9,7 @@ import transport.TimeoutAction;
  */
 public class GBNReceiver implements Receiver, TimeoutAction {
 
-	private final static int RECEIVER_TIMEOUT = 4000;
+	private final static int RECEIVER_TIMEOUT = 8000;
 	private int expSeqNum;
 
 	public GBNReceiver() {}
