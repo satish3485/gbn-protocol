@@ -1,6 +1,7 @@
 /**
  * This class provide a basis Packet structure.
  * @author Nicos Giuliani
+ * @version 1.0
  */
 public final class Packet {
 	

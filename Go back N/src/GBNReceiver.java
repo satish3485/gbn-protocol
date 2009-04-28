@@ -2,10 +2,14 @@ import transport.Network;
 import transport.Receiver;
 import transport.TimeoutAction;
 
+/**
+ * This class provides a basic Go back N Receiver
+ * @author Nicos Giuliani
+ * @version 1.0
+ */
 public class GBNReceiver implements Receiver, TimeoutAction {
 
-	private final int RECEIVER_TIMEOUT = 4000;
-	
+	private final static int RECEIVER_TIMEOUT = 4000;
 	private int expSeqNum;
 
 	public GBNReceiver() {}
@@ -46,6 +50,5 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 			e.printStackTrace();
 		
 		}
-
 	}	
 }
