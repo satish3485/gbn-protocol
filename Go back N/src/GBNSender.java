@@ -13,7 +13,7 @@ public class GBNSender implements Sender, TimeoutAction {
 	private final static int SENDER_TIMEOUT_MS = 1000;
 	private final static int WINDOW_SIZE = 5;
 	
-	private ArrayList<Packet> pending;
+	private ArrayList<Packet> pending; // Array of all pending packets
 	private int seqNum; // Sequence number (int)
 	private int seqNumLength; // Length of the sequence number (int)
 
@@ -77,15 +77,17 @@ public class GBNSender implements Sender, TimeoutAction {
 
 		final int receivedACK = SeqNum.toInt(buffer);
 		
-		if (receivedACK >= seqNum) {
+		if (length > 0 && receivedACK == seqNum) {
 
-			Network.setTimeout(SENDER_TIMEOUT_MS, this);
 	        slideWindow(receivedACK);
             Network.allowClose();
             Network.resumeSender();
-            System.out.println("ACK n: " + receivedACK );
+            System.out.println("Received ACK for sequence n. " + receivedACK );
+            Network.setTimeout(SENDER_TIMEOUT_MS, this);
             
 		} else if (pending.size() == WINDOW_SIZE) {
+			Network.blockSender();
+			Network.disallowClose();
 			System.out.println("The window is full, timeout approching...");
 		}
 	}
@@ -107,16 +109,18 @@ public class GBNSender implements Sender, TimeoutAction {
 		if(pending.size() <= WINDOW_SIZE) {
 
             Network.resumeSender();
+            Network.allowClose();
 			makePacket(seqNum, buffer, offset, length);
 			Network.unreliableSend(data, 0, packetLength);
 			Network.setTimeout(SENDER_TIMEOUT_MS, this);
 			
+			return packetLength - (seqNumLength + 1); // the number of bytes accepted
+			
 		} else {
 			Network.blockSender();
 			Network.disallowClose();
+			return 0; // no bytes were accepted
 		}
-		
-		return packetLength - (seqNumLength + 1);
 	}
 
 }

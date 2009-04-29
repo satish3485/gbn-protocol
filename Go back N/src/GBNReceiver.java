@@ -16,22 +16,26 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 
 	public final void unreliableReceive(final byte[] buffer, final int offset, final int length) {
 	
+		final int receivedSeqNum = SeqNum.getSeqNum(buffer);
+		System.out.println("received seqNum "+receivedSeqNum);
 		
-		if(SeqNum.getSeqNum(buffer) == expSeqNum) {
+		if(receivedSeqNum == expSeqNum) {
 			
 			System.out.println("Received valid packet n. " + expSeqNum);
-
+			Network.cancelTimeout(this);
 			Network.reliableReceive(buffer, offset + (int) buffer[0] + 1, length - ((int) buffer[0] + 1));
-			expSeqNum++;
-			
+
 			// Send ACK
 			Network.unreliableSend(SeqNum.toByte(expSeqNum), 0, SeqNum.toByte(expSeqNum).length);			
-			Network.setTimeout(RECEIVER_TIMEOUT, this);
-			
+			Network.setTimeout(RECEIVER_TIMEOUT, this);	
+
+			expSeqNum++;
 			
 		} else {
+			Network.cancelTimeout(this);
 			System.out.println("Received invalid packet, n. " + SeqNum.getSeqNum(buffer)+" instead of " + expSeqNum);
-			Network.unreliableSend(SeqNum.toByte(expSeqNum), 0, SeqNum.toByte(expSeqNum).length);
+			Network.unreliableSend(SeqNum.toByte(expSeqNum), 0, SeqNum.toByte(expSeqNum).length); // send ACK for the previous seqNum
+			Network.setTimeout(RECEIVER_TIMEOUT, this);
 		}
 
 	}
