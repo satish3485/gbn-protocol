@@ -11,7 +11,7 @@ import transport.TimeoutAction;
 public class GBNSender implements Sender, TimeoutAction {
 
 	private final static int SENDER_TIMEOUT_MS = 1000;
-	private final static int WINDOW_SIZE = 15;
+	private final static int WINDOW_SIZE = 5;
 	
 	private ArrayList<Packet> pending;
 	private int seqNum; // Sequence number (int)
@@ -77,43 +77,43 @@ public class GBNSender implements Sender, TimeoutAction {
 
 		final int receivedACK = SeqNum.toInt(buffer);
 		
-		if (length > 0 && receivedACK >= seqNum && pending.size() <= WINDOW_SIZE) {
+		if (receivedACK >= seqNum) {
 
-			slideWindow(receivedACK);
-	        Network.cancelTimeout(this);
+			Network.setTimeout(SENDER_TIMEOUT_MS, this);
+	        slideWindow(receivedACK);
             Network.allowClose();
             Network.resumeSender();
-
-			
-		} else if(receivedACK < seqNum) {
-			System.out.println("Received wrong ACK n: " + receivedACK );
-		} else if (pending.size() >= WINDOW_SIZE) {
+            System.out.println("ACK n: " + receivedACK );
+            
+		} else if (pending.size() == WINDOW_SIZE) {
 			System.out.println("The window is full, timeout approching...");
 		}
 	}
 
 	public final void timeoutExpired() {
 
-		Network.cancelTimeout(this);
-		System.out.println("Sender timeout");
+		System.out.println("Sender timeout. Sending all pending..");
 		
 		for (int i = 0; i < pending.size(); i++) {
 			Network.unreliableSend(pending.get(i).getContent(), 0, pending.get(i).getLength());
 			System.out.println("Re-sending packet: " + pending.get(i).getSeqNum());
 		}
 		Network.setTimeout(SENDER_TIMEOUT_MS, this);
+		
 	}
 
 	public final int reliableSend(final byte[] buffer, final int offset, final int length) {
 
 		if(pending.size() <= WINDOW_SIZE) {
+
+            Network.resumeSender();
+			makePacket(seqNum, buffer, offset, length);
+			Network.unreliableSend(data, 0, packetLength);
+			Network.setTimeout(SENDER_TIMEOUT_MS, this);
+			
+		} else {
 			Network.blockSender();
 			Network.disallowClose();
-			
-			makePacket(seqNum, buffer, offset, length);
-			
-			Network.setTimeout(SENDER_TIMEOUT_MS, this);
-			Network.unreliableSend(data, 0, packetLength);
 		}
 		
 		return packetLength - (seqNumLength + 1);
