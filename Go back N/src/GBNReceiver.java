@@ -21,17 +21,20 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 			
 			System.out.println("Received valid packet n. " + expSeqNum);
 
+			Network.cancelTimeout(this);
 			Network.reliableReceive(buffer, offset + (int) buffer[0] + 1, length - ((int) buffer[0] + 1));
-			expSeqNum++;
 			
 			// Send ACK
 			Network.unreliableSend(SeqNum.toByte(expSeqNum), 0, SeqNum.toByte(expSeqNum).length);			
 			Network.setTimeout(RECEIVER_TIMEOUT, this);
+			expSeqNum++;
 			
 			
 		} else {
 			System.out.println("Received invalid packet, n. " + SeqNum.getSeqNum(buffer)+" instead of " + expSeqNum);
+			Network.cancelTimeout(this);
 			Network.unreliableSend(SeqNum.toByte(expSeqNum), 0, SeqNum.toByte(expSeqNum).length);
+			Network.setTimeout(RECEIVER_TIMEOUT, this);
 		}
 
 	}
@@ -41,16 +44,12 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 		System.out.println("Receiver timeout! Disconnection...");
 		
 		try {
-		
 			Network.cancelTimeout(this);
 			Network.disconnect();
 			Network.allowClose();
-		
 		} catch (InterruptedException e) {
-		
 			Network.setTimeout(RECEIVER_TIMEOUT, this);
 			e.printStackTrace();
-		
 		}
 	}	
 }

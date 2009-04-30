@@ -110,6 +110,7 @@ public class GBNSender implements Sender, TimeoutAction {
 		if(pendingSegment.size() <= WINDOW_SIZE) {
 
             Network.resumeSender();
+            Network.allowClose();
             Segment segment = makePacket(seqNum, buffer, offset, length); // Create the segment
 			Network.unreliableSend(segment.getContent(), 0, segment.getLength());
 			Network.setTimeout(SENDER_TIMEOUT_MS, this);
