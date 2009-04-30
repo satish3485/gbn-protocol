@@ -62,25 +62,12 @@ public class GBNSender implements Sender, TimeoutAction {
 		
 	}
 
-	/** 
-	 * @param sequence number
-	 * Sends all pending packets based on cumulative ACKs 
-	 */
-	private final void slideWindow(final int seqNum) {
-		
-		for (int i = 0; i < pendingSegment.size(); i++) {
-		
-			if(pendingSegment.get(i).getSeqNum() <= seqNum) {
-				pendingSegment.remove(i);
-			}	
-		}
-	}
 
 	public final void unreliableReceive(byte[] buffer, int offset, int length) {
 
 		final int receivedACK = SeqNum.toInt(buffer);
 		
-		if (receivedACK >= seqNum) {
+		if (receivedACK >= seqNum && length > 0) {
 
 			Network.setTimeout(SENDER_TIMEOUT_MS, this);
 	        slideWindow(receivedACK);
@@ -120,6 +107,20 @@ public class GBNSender implements Sender, TimeoutAction {
 			Network.blockSender();
 			Network.disallowClose();
 			return 0;
+		}
+	}
+
+	/** 
+	 * @param sequence number
+	 * Sends all pending packets based on cumulative ACKs 
+	 */
+	private final void slideWindow(final int seqNum) {
+		
+		for (int i = 0; i < pendingSegment.size(); i++) {
+			
+			if(pendingSegment.get(i).getSeqNum() <= seqNum) {
+				pendingSegment.remove(i);
+			}	
 		}
 	}
 
