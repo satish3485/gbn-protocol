@@ -13,7 +13,7 @@ public class GBNSender implements Sender, TimeoutAction {
 	private final static int SENDER_TIMEOUT_MS = 1000;
 	private final static int WINDOW_SIZE = 5;
 	
-	private ArrayList<Packet> pending;
+	private ArrayList<Segment> pendingSegment;
 	private int seqNum; // Sequence number (int)
 	private int seqNumLength; // Length of the sequence number (int)
 
@@ -23,7 +23,7 @@ public class GBNSender implements Sender, TimeoutAction {
 	public GBNSender() {
 		
 		seqNumLength = SeqNum.toByte(seqNum).length;
-		pending = new ArrayList<Packet>();
+		pendingSegment = new ArrayList<Segment>();
 		data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];
 		packetLength = 0;
 		
@@ -54,7 +54,7 @@ public class GBNSender implements Sender, TimeoutAction {
 		}
 		
 		/** Put it in pending packets */
-		pending.add(new Packet(this.seqNum, packetLength, data));
+		pendingSegment.add(new Segment(this.seqNum, packetLength, data));
 		
 		this.seqNum++;
 	}
@@ -65,10 +65,10 @@ public class GBNSender implements Sender, TimeoutAction {
 	 */
 	private final void slideWindow(final int seqNum) {
 		
-		for (int i = 0; i < pending.size(); i++) {
+		for (int i = 0; i < pendingSegment.size(); i++) {
 		
-			if(pending.get(i).getSeqNum() <= seqNum) {
-				pending.remove(i);
+			if(pendingSegment.get(i).getSeqNum() <= seqNum) {
+				pendingSegment.remove(i);
 			}	
 		}
 	}
@@ -85,7 +85,7 @@ public class GBNSender implements Sender, TimeoutAction {
             Network.resumeSender();
             System.out.println("ACK n: " + receivedACK );
             
-		} else if (pending.size() == WINDOW_SIZE) {
+		} else if (pendingSegment.size() == WINDOW_SIZE) {
 			System.out.println("The window is full, timeout approching...");
 		}
 	}
@@ -94,9 +94,9 @@ public class GBNSender implements Sender, TimeoutAction {
 
 		System.out.println("Sender timeout. Sending all pending..");
 		
-		for (int i = 0; i < pending.size(); i++) {
-			Network.unreliableSend(pending.get(i).getContent(), 0, pending.get(i).getLength());
-			System.out.println("Re-sending packet: " + pending.get(i).getSeqNum());
+		for (int i = 0; i < pendingSegment.size(); i++) {
+			Network.unreliableSend(pendingSegment.get(i).getContent(), 0, pendingSegment.get(i).getLength());
+			System.out.println("Re-sending packet: " + pendingSegment.get(i).getSeqNum());
 		}
 		Network.setTimeout(SENDER_TIMEOUT_MS, this);
 		
@@ -104,7 +104,7 @@ public class GBNSender implements Sender, TimeoutAction {
 
 	public final int reliableSend(final byte[] buffer, final int offset, final int length) {
 
-		if(pending.size() <= WINDOW_SIZE) {
+		if(pendingSegment.size() <= WINDOW_SIZE) {
 
             Network.resumeSender();
 			makePacket(seqNum, buffer, offset, length);

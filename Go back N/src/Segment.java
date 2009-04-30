@@ -3,13 +3,13 @@
  * @author Nicos Giuliani
  * @version 1.0
  */
-public final class Packet {
+public final class Segment {
 	
 	private final int seqNum;
 	private final int length;
 	private final byte[] content;
 	
-	Packet(final int seqNum, final int length, final byte[] content) {
+	Segment(final int seqNum, final int length, final byte[] content) {
 		this.seqNum = seqNum;
 		this.length = length;
 		this.content = content;
