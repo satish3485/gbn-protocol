@@ -29,7 +29,7 @@ public class GBNReceiver implements Receiver, TimeoutAction {
 			expSeqNum++;
 
 		} else {
-			System.out.println("Received invalid packet: " + SeqNum.getSeqNum(buffer) + ".\n Expected: " + expSeqNum + "\n");
+			System.out.println("Received invalid packet: " + SeqNum.getSeqNum(buffer) + ".\nExpected: " + expSeqNum + "\n");
 			
 			Network.cancelTimeout(this);
 			// Received an invalid packet, ACK the precedent.

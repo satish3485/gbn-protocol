@@ -41,7 +41,7 @@ public class GBNSender implements Sender, TimeoutAction {
 
 		System.out.println("Re-sending all pending packets...\n");
 		
-		for (int i = 0; i < pendingPackets.size(); i++) {
+        for (int i = 0; i < pendingPackets.size(); i++) {
 			Network.unreliableSend(pendingPackets.get(i).getContent(), 0, pendingPackets.get(i).getLength());
 			System.out.println("Re-sending packet: " + pendingPackets.get(i).getSeqNum());
 		}
@@ -77,9 +77,6 @@ public class GBNSender implements Sender, TimeoutAction {
 	 * Sends all pending packets based on cumulative ACKs 
 	 */
 	private final void removeAckwnoleged(final int seqNum) {
-		
-        Network.disallowClose();
-        Network.blockSender();
         
 		for (int i = 0; i < pendingPackets.size(); i++) {
 			
