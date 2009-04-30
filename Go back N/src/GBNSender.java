@@ -10,58 +10,15 @@ import transport.TimeoutAction;
  */
 public class GBNSender implements Sender, TimeoutAction {
 
-	private final static int SENDER_TIMEOUT_MS = 1000;
+	private final static int SENDER_TIMEOUT = 1000;
 	private final static int WINDOW_SIZE = 5;
 	
-	private ArrayList<Segment> pendingSegment;
-	private int seqNum; // Sequence number (int)
-	private int seqNumLength; // Length of the sequence number (int)
-	private int packetLength;
+	private ArrayList<Packet> pendingPackets;
+	private int seqNum; // Sequence number (integer)
 
 	public GBNSender() {
-		
-		seqNumLength = SeqNum.toByte(seqNum).length;
-		pendingSegment = new ArrayList<Segment>();
-		
+		pendingPackets = new ArrayList<Packet>();
 	}
-
-	private final Segment makePacket(final int seq, final byte[] buffer, int offset, final int length) {
-
-		if (length + seqNumLength + 1 > Network.MAX_PACKET_SIZE) {
-			packetLength = Network.MAX_PACKET_SIZE;
-		} else {
-			packetLength = length + seqNumLength + 1;
-		}
-		
-		byte[] data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];;
-		
-		/** size of the sequence number */
-		data[0] = (byte) seqNumLength;
-
-		/**  transform sequence number into byte[] */
-		byte[] seqNum = SeqNum.toByte(this.seqNum); 
-
-		/** push the sequence number into the byte array */
-		for (int i = 0; i < seqNumLength; i++) {
-			data[i + 1] = seqNum[i];
-		}
-
-		/** push the content into the byte array */	
-		for (int i = seqNumLength + 1; i < packetLength; i++) {
-			data[i] = buffer[offset++];
-		}
-		
-		Segment newSegment = new Segment(this.seqNum, packetLength, data);
-		
-		/** Put it in pending packets */
-		pendingSegment.add(newSegment);
-		
-		this.seqNum++;
-		
-		return newSegment;
-		
-	}
-
 
 	public final void unreliableReceive(byte[] buffer, int offset, int length) {
 
@@ -69,39 +26,44 @@ public class GBNSender implements Sender, TimeoutAction {
 		
 		if (receivedACK >= seqNum && length > 0) {
 
-			Network.setTimeout(SENDER_TIMEOUT_MS, this);
-	        slideWindow(receivedACK);
+			Network.setTimeout(SENDER_TIMEOUT, this);
+			
+			// remove all packets up to the received sequence number
+	        removeAckwnoleged(receivedACK);
+	        
             Network.allowClose();
             Network.resumeSender();
-            System.out.println("ACK n: " + receivedACK );
-            
-		} else if (pendingSegment.size() == WINDOW_SIZE) {
-			System.out.println("The window is full, timeout approching...");
-		}
+            System.out.println("ACK " + receivedACK);
+		} 
 	}
 
 	public final void timeoutExpired() {
 
-		System.out.println("Sender timeout. Sending all pending..");
+		System.out.println("Re-sending all pending packets...\n");
 		
-		for (int i = 0; i < pendingSegment.size(); i++) {
-			Network.unreliableSend(pendingSegment.get(i).getContent(), 0, pendingSegment.get(i).getLength());
-			System.out.println("Re-sending packet: " + pendingSegment.get(i).getSeqNum());
+		for (int i = 0; i < pendingPackets.size(); i++) {
+			Network.unreliableSend(pendingPackets.get(i).getContent(), 0, pendingPackets.get(i).getLength());
+			System.out.println("Re-sending packet: " + pendingPackets.get(i).getSeqNum());
 		}
-		Network.setTimeout(SENDER_TIMEOUT_MS, this);
 		
+		System.out.println();
+		Network.setTimeout(SENDER_TIMEOUT, this);
 	}
 
 	public final int reliableSend(final byte[] buffer, final int offset, final int length) {
 
-		if(pendingSegment.size() <= WINDOW_SIZE) {
+		if(pendingPackets.size() <= WINDOW_SIZE) {
 
             Network.resumeSender();
             Network.allowClose();
-            Segment segment = makePacket(seqNum, buffer, offset, length); // Create the segment
-			Network.unreliableSend(segment.getContent(), 0, segment.getLength());
-			Network.setTimeout(SENDER_TIMEOUT_MS, this);
-			return segment.getLength() - (seqNumLength + 1);
+            
+            // Creates the new packet
+            Packet packet = makePacket(seqNum, buffer, offset, length);
+			
+            Network.unreliableSend(packet.getContent(), 0, packet.getLength());
+			Network.setTimeout(SENDER_TIMEOUT, this);
+			
+			return packet.getLength() - ( (int) packet.getContent()[0] + 1);
 			
 		} else {
 			Network.blockSender();
@@ -111,17 +73,66 @@ public class GBNSender implements Sender, TimeoutAction {
 	}
 
 	/** 
-	 * @param sequence number
+	 * @param a sequence number
 	 * Sends all pending packets based on cumulative ACKs 
 	 */
-	private final void slideWindow(final int seqNum) {
+	private final void removeAckwnoleged(final int seqNum) {
 		
-		for (int i = 0; i < pendingSegment.size(); i++) {
+        Network.disallowClose();
+        Network.blockSender();
+        
+		for (int i = 0; i < pendingPackets.size(); i++) {
 			
-			if(pendingSegment.get(i).getSeqNum() <= seqNum) {
-				pendingSegment.remove(i);
+			if(pendingPackets.get(i).getSeqNum() <= seqNum) {
+				pendingPackets.remove(i);
 			}	
 		}
+	}
+	
+	/**
+	 * This method creates packets ready to be sent through the network
+	 * @param seq
+	 * @param buffer
+	 * @param offset
+	 * @param length
+	 * @return a new packet
+	 */
+	private final Packet makePacket(final int seq, final byte[] buffer, int offset, final int length) {
+		
+		// Length of the sequence number (integer)
+		int seqNumLength = SeqNum.toByte(seqNum).length; 
+		int packetLength;
+		
+		if (length + seqNumLength + 1 > Network.MAX_PACKET_SIZE) {
+			packetLength = Network.MAX_PACKET_SIZE;
+		} else {
+			packetLength = length + seqNumLength + 1;
+		}
+		
+		byte[] data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];
+		
+		// transform sequence number into byte[]
+		byte[] seqNum = SeqNum.toByte(this.seqNum); 
+		// store the size of the sequence number
+		data[0] = (byte) seqNumLength;
+		
+		// push the content and sequence number into the byte array
+		for (int i = 1; i < packetLength; i++) {
+			
+			if(i < seqNumLength + 1) {
+				data[i] = seqNum[i - 1];
+			} else {
+				data[i] = buffer[offset++];
+			}
+		}
+		// Create a new packet
+		Packet newPacket = new Packet(this.seqNum, packetLength, data);
+		
+		// Add to the pending packets
+		pendingPackets.add(newPacket);
+		this.seqNum++;
+		
+		return newPacket;
 	}
 
 }
