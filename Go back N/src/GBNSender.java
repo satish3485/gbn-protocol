@@ -16,26 +16,24 @@ public class GBNSender implements Sender, TimeoutAction {
 	private ArrayList<Segment> pendingSegment;
 	private int seqNum; // Sequence number (int)
 	private int seqNumLength; // Length of the sequence number (int)
-
-	private byte[] data;
 	private int packetLength;
 
 	public GBNSender() {
 		
 		seqNumLength = SeqNum.toByte(seqNum).length;
 		pendingSegment = new ArrayList<Segment>();
-		data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];
-		packetLength = 0;
 		
 	}
 
-	private final void makePacket(final int seq, final byte[] buffer, int offset, final int length) {
+	private final Segment makePacket(final int seq, final byte[] buffer, int offset, final int length) {
 
 		if (length + seqNumLength + 1 > Network.MAX_PACKET_SIZE) {
 			packetLength = Network.MAX_PACKET_SIZE;
 		} else {
 			packetLength = length + seqNumLength + 1;
 		}
+		
+		byte[] data = new byte[Network.MAX_PACKET_SIZE + seqNumLength + 1];;
 		
 		/** size of the sequence number */
 		data[0] = (byte) seqNumLength;
@@ -53,10 +51,15 @@ public class GBNSender implements Sender, TimeoutAction {
 			data[i] = buffer[offset++];
 		}
 		
+		Segment newSegment = new Segment(this.seqNum, packetLength, data);
+		
 		/** Put it in pending packets */
-		pendingSegment.add(new Segment(this.seqNum, packetLength, data));
+		pendingSegment.add(newSegment);
 		
 		this.seqNum++;
+		
+		return newSegment;
+		
 	}
 
 	/** 
@@ -107,18 +110,16 @@ public class GBNSender implements Sender, TimeoutAction {
 		if(pendingSegment.size() <= WINDOW_SIZE) {
 
             Network.resumeSender();
-			makePacket(seqNum, buffer, offset, length);
-			Network.unreliableSend(data, 0, packetLength);
+            Segment segment = makePacket(seqNum, buffer, offset, length); // Create the segment
+			Network.unreliableSend(segment.getContent(), 0, segment.getLength());
 			Network.setTimeout(SENDER_TIMEOUT_MS, this);
-			return packetLength - (seqNumLength + 1);
+			return segment.getLength() - (seqNumLength + 1);
 			
 		} else {
 			Network.blockSender();
 			Network.disallowClose();
 			return 0;
 		}
-		
-		
 	}
 
 }
