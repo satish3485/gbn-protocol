@@ -11,7 +11,7 @@ import transport.TimeoutAction;
 public class GBNSender implements Sender, TimeoutAction {
 
 	private final static int SENDER_TIMEOUT = 1000;
-	private final static int WINDOW_SIZE = 5;
+	private final static int WINDOW_SIZE = 5; // On my local network this is the best window size
 	
 	private ArrayList<Packet> pendingPackets;
 	private int seqNum; // Sequence number (integer)
